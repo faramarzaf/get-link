@@ -131,7 +131,7 @@ func getSeasonsCount(seriesName string) (seasons int) {
 }
 
 func getDownloadUrlByQualityAndSeasonNumber(seriesName, quality, season string) string {
-	return BASE_URL + "/" + seriesName + "/Soft.Sub/S" + season + "/" + quality
+	return BASE_URL + "/" + seriesName + "/Soft.Sub/S" + season + "/" + quality + "/"
 }
 
 func printQualityBySeriesNameAndSeasonNumber(name, formattedSeason string) {
