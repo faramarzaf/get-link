@@ -139,7 +139,8 @@ func printQualityBySeriesNameAndSeasonNumber(name, formattedSeason string) {
 	c := colly.NewCollector()
 	c.OnHTML(".list tr", func(e *colly.HTMLElement) {
 		quality := e.ChildAttr("a", "href")
-		qualities = append(qualities, quality)
+		formattedQuality := strings.Replace(quality, "/", "", -1)
+		qualities = append(qualities, formattedQuality+"\n")
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
