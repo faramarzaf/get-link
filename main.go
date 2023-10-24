@@ -16,15 +16,13 @@ const (
 )
 
 func main() {
-
 	allSeries := getAllSeries()
+	fmt.Println("Welcome to the get link app.")
+	fmt.Printf("Total of series: %d\n", len(allSeries))
 
-	fmt.Println("Welcome to get link app.")
 	scanner := bufio.NewScanner(os.Stdin)
-	for _, seriesName := range allSeries {
-		seasonsCount := getSeasonsCount(seriesName)
-		fmt.Printf("name: %s , seasons: %v\n", seriesName, seasonsCount)
-	}
+	printSeasonsBySeriesName(allSeries)
+
 	var urls []string
 	var downloadUrl string
 
@@ -77,6 +75,15 @@ func main() {
 
 }
 
+func printSeasonsBySeriesName(allSeries []string) {
+	for _, seriesName := range allSeries {
+		seasonsCount, failedRecords := getSeasonsCount(seriesName)
+		fmt.Printf("name: %s , seasons: %v\n", seriesName, seasonsCount)
+		if failedRecords != "" {
+			fmt.Printf(" Error occured for seaons of %s. Correct url is %s\n", seriesName, failedRecords)
+		}
+	}
+}
 func getAllSeries() []string {
 	var allSeries []string
 	c := colly.NewCollector()
@@ -102,11 +109,9 @@ func getAllSeries() []string {
 	return allSeries
 }
 
-func getSeasonsCount(seriesName string) (seasons int) {
+func getSeasonsCount(seriesName string) (seasons int, failedRecords string) {
 	count := 0
 	seriesHomePageUrl := BASE_URL + "/" + seriesName + "/Soft.Sub/"
-
-	//var failedFixedUrlRecords string
 
 	c := colly.NewCollector()
 	c.OnHTML(".list tr", func(e *colly.HTMLElement) {
@@ -117,8 +122,7 @@ func getSeasonsCount(seriesName string) (seasons int) {
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
-		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r.Request, "\nError:", err)
-		//	failedFixedUrlRecords = BASE_URL + "/" + seriesName + "/"
+		failedRecords = BASE_URL + "/" + seriesName + "/"
 	})
 
 	c.OnScraped(func(r *colly.Response) {
@@ -127,7 +131,7 @@ func getSeasonsCount(seriesName string) (seasons int) {
 	extensions.RandomUserAgent(c)
 	c.Visit(seriesHomePageUrl)
 
-	return count
+	return count, failedRecords
 }
 
 func getDownloadUrlByQualityAndSeasonNumber(seriesName, quality, season string) string {
