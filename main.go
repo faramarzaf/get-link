@@ -21,7 +21,15 @@ func main() {
 	fmt.Printf("Total of series: %d\n", len(allSeries))
 
 	scanner := bufio.NewScanner(os.Stdin)
-	printSeasonsBySeriesName(allSeries)
+	correctedUrls := printSeasonsBySeriesName(allSeries)
+
+	if len(correctedUrls) != 0 {
+		fmt.Println("Retrying for corrected series...")
+		for _, url := range correctedUrls {
+			seasonCount := retryScrapForCorrectedUrls(url)
+			fmt.Println(url, " : ", seasonCount)
+		}
+	}
 
 	var urls []string
 	var downloadUrl string
@@ -61,7 +69,7 @@ func main() {
 		extensions.RandomUserAgent(c)
 		c.Visit(downloadUrl)
 
-		writeToFile("data"+strconv.Itoa(season)+".txt", urls)
+		writeToFile(seriesName+strconv.Itoa(season)+".txt", urls)
 		urls = nil
 
 		fmt.Println("Continue? [y/n]")
@@ -75,15 +83,23 @@ func main() {
 
 }
 
-func printSeasonsBySeriesName(allSeries []string) {
+func printSeasonsBySeriesName(allSeries []string) []string {
+	var correctedUrls []string
 	for _, seriesName := range allSeries {
-		seasonsCount, failedRecords := getSeasonsCount(seriesName)
-		fmt.Printf("name: %s , seasons: %v\n", seriesName, seasonsCount)
-		if failedRecords != "" {
-			fmt.Printf(" Error occured for seaons of %s. Correct url is %s\n", seriesName, failedRecords)
+		seasonsCount, correctedUrl := getSeasonsCount(seriesName)
+		if seasonsCount == 1 {
+			fmt.Printf("'%s' has %v season\n", seriesName, seasonsCount)
+		} else {
+			fmt.Printf("'%s' has %v seasons\n", seriesName, seasonsCount)
+		}
+		if correctedUrl != "" {
+			fmt.Printf("Error occured for seaons of %s. Correct url is %s\n", seriesName, correctedUrl)
+			correctedUrls = append(correctedUrls, correctedUrl)
 		}
 	}
+	return correctedUrls
 }
+
 func getAllSeries() []string {
 	var allSeries []string
 	c := colly.NewCollector()
@@ -109,7 +125,7 @@ func getAllSeries() []string {
 	return allSeries
 }
 
-func getSeasonsCount(seriesName string) (seasons int, failedRecords string) {
+func getSeasonsCount(seriesName string) (seasons int, correctedUrl string) {
 	count := 0
 	seriesHomePageUrl := BASE_URL + "/" + seriesName + "/Soft.Sub/"
 
@@ -122,7 +138,7 @@ func getSeasonsCount(seriesName string) (seasons int, failedRecords string) {
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
-		failedRecords = BASE_URL + "/" + seriesName + "/"
+		correctedUrl = BASE_URL + "/" + seriesName + "/"
 	})
 
 	c.OnScraped(func(r *colly.Response) {
@@ -131,7 +147,7 @@ func getSeasonsCount(seriesName string) (seasons int, failedRecords string) {
 	extensions.RandomUserAgent(c)
 	c.Visit(seriesHomePageUrl)
 
-	return count, failedRecords
+	return count, correctedUrl
 }
 
 func getDownloadUrlByQualityAndSeasonNumber(seriesName, quality, season string) string {
@@ -144,7 +160,10 @@ func printQualityBySeriesNameAndSeasonNumber(name, formattedSeason string) {
 	c.OnHTML(".list tr", func(e *colly.HTMLElement) {
 		quality := e.ChildAttr("a", "href")
 		formattedQuality := strings.Replace(quality, "/", "", -1)
-		qualities = append(qualities, formattedQuality+"\n")
+
+		if formattedQuality != ".." && formattedQuality != "Sub" {
+			qualities = append(qualities, formattedQuality+"\n")
+		}
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
@@ -173,4 +192,27 @@ func writeToFile(fileName string, data []string) {
 		}
 	}
 	fmt.Println("done")
+}
+
+func retryScrapForCorrectedUrls(url string) int {
+	count := 0
+	c := colly.NewCollector()
+	c.OnHTML(".list tr", func(e *colly.HTMLElement) {
+		season := e.ChildAttr("a", "href")
+		if strings.HasPrefix(season, "S") {
+			count++
+		}
+	})
+
+	c.OnError(func(r *colly.Response, err error) {
+		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r.Request, "\nError:", err)
+	})
+
+	c.OnScraped(func(r *colly.Response) {
+	})
+
+	extensions.RandomUserAgent(c)
+	c.Visit(url)
+
+	return count
 }
