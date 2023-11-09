@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	BASE_URL = "https://dls2.top-movies2filmha.click/DonyayeSerial/series"
+	BASE_URL = "https://dls6.top-movies2filmha.click/DonyayeSerial/series"
 )
 
 func main() {
